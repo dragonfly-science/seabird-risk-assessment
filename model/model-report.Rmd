@@ -1,0 +1,189 @@
+```{r, echo=F}
+model <- basename(normalizePath('.'))
+```
+
+---
+title: `r sprintf('Results for model %s', model)`
+output: 
+  html_document:
+	toc: yes
+	toc_depth: 2
+	toc_float: true
+	theme: cerulean
+mode: selfcontained
+---
+
+
+```{r echo=F, warning= F, message=F}
+library(knitr)
+library(data.table)
+library(kableExtra)
+source('../../functions.r')
+opts_chunk$set(message = FALSE, warning = FALSE, error = FALSE, tidy = FALSE, cache = FALSE,results = 'asis' )
+
+spplist  <- fread('../../input-data/species-list.csv')[base_species == T]
+
+## options(xtable.include.rownames = F,
+##         xtable.hline.after = -1,
+##         xtable.sanitize.text.function = function(x){x},
+##         xtable.format.args = list(big.mark = ' '),
+##         warnPartialMatchAttr = T,
+##         warnPartialMatchDollar = F)
+
+
+```
+
+Important: these results are only provided to illustrate the seabird
+risk assessment framework and rely on dummy data. These results are
+not real!
+
+----
+
+# Annual Potential Fatalities
+
+## APF by species
+
+```{r echo=F}
+apf_sp <- fread('assets/apf_by_species.csv')
+for (v in c('mean', 'sd', 'lcl', 'ucl')) apf_sp[, eval(v) := format(round(get(v)), big.mark=' ')]
+apf_sp[, ci95 := sprintf('%s -- %s', lcl, ucl)]
+apf_sp[, c('code', 'lcl', 'ucl') := NULL]
+setnames(apf_sp, c('Taxa', 'Mean', 'SD', '95% c.i.'))
+```
+
+```{r echo=F}
+kable(apf_sp, digits = c(NA, 0, 0, NA), booktabs = T, align = 'lrrr',
+      caption = 'Annual potential fatalities in commercial fisheries in the southern hemisphere')
+
+```
+
+----
+
+## APF spatial distribution
+
+```{r echo=F, results='asis'}
+for (i in 1:nrow(spplist)) {
+    sp <- spplist[i, upper1st(common_name)]
+    cat('<div style="float: left; width: 48%; align: top;">\n')
+    cat(sprintf('<h4>%s</h4>\n', sp))
+    cat(sprintf('<img src="assets/apf-map-%s.png" style="float: center; width: 80%%; margin-right: 1%%; margin-bottom: 0.5em;">\n\n', spplist[i, code]))
+    cat('</div>\n')
+}
+```
+<p style="clear: both;">
+
+
+----
+
+
+```{r echo=F}
+if (file.exists('../risk-ratios-summary.csv')) {
+    cat('--- \n## Risk ratio\n\n')
+    riskratios <- fread('../risk-ratios-summary.csv')
+    for (v in c('mean', 'sd', 'lcl', 'ucl'))  riskratios[, eval(v) := format(round(get(v),2), big.mark=' ')]
+    riskratios[, ci95 := sprintf('%s -- %s', lcl, ucl)]
+    riskratios[, c('code', 'lcl', 'ucl', 'taxa') := NULL]
+    setnames(riskratios, c('Taxa', 'Mean', 'SD', '95% c.i.'))
+
+    kable(riskratios, digits = c(NA, NA, 2, 2, 2), booktabs = T, align = 'lrrr',
+          caption = 'Risk ratio of the studied seabird taxa in the southern hemisphere commercial fisheries') %>%
+        kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width=F)
+
+    if (file.exists("assets/risk-ratios.png")) {
+        cat('<figure>\n<img src="assets/risk-ratios.png" width="100%%">\n<figcaption>Risk ratios of the studied species in the southern hemisphere commercial fisheries.</figcaption>\n\n')
+    }
+    
+}
+```
+
+
+----
+
+# MCMC diagnostics
+
+Trace of the MCMC chains for the vulnerability parameters (intercept,
+fishery groups, and species groups). The vulnerability of reference
+groups was fixed to 1.
+
+```{r echo=F, results='asis'}
+cat('<img src="assets/traces_vulnerabilities.png" width="100%%">\n\n')
+```
+
+
+------
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/observed-vs-predicted-captures.png")) {
+    cat('\n# Comparison of observed and predicted captures\n\n')
+
+    cat('The comparison of the observed number of captures with the predicted
+number of captures among all strata provides an indication of the
+model fit and may highlight issues about the assumption of the model
+(e.g. grouping of species or fisheries).\n')
+
+    cat('<img src="assets/observed-vs-predicted-captures.png" width="70%">\n')
+
+    cat('\n\n------\n\n')
+}
+```
+
+# Comparison of results with dummy data
+
+Since the captures were simulated from fixed and therefore known
+parameters, we can compare the results of the model with the values
+used for the creation of the data.
+
+## Vulnerabilities
+
+<img src="assets/observed-vs-predicted-vulnerabilities.png" width="70%">
+
+```{r echo=F, results='asis'}
+vulcomp <- fread('assets/observed-vs-predicted-vulnerabilities.csv')
+vulcomp <- vulcomp[vulnerability < lcl | vulnerability > ucl]
+vulcomp <- vulcomp[, .(lab, fishery_group, species_group, simulated = vulnerability, mean, lcl, ucl)]
+if (nrow(vulcomp)) {
+    kable(vulcomp, col.names=c('Parameter type', 'Fishery group', 'Species group', 'Simulated value', 'Mean', 'Lower c.l.', 'Upper c.l.'), caption = 'Vulnerability parameters for which the simulated value was outside the estimated 95% credible interval')
+}
+```
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/observed-vs-predicted-captures.png")) {
+    cat('\n## Total number of incidents\n\n')
+
+    cat('Comparison of the total estimated number of incidents (observable or not) with the simulated number, for each combination of fishery group and species, in all observed fishing effort.\n\n')
+    
+    cat('<img src="assets/observed-vs-predicted-incidents.png" width="70%">\n')
+}
+
+```
+
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/comparison-with-actual_probabilities.png")) {
+    cat('\n## Probability parameters\n\n')
+
+    cat('Comparison of the estimated probability parameters (histograms) with the actual value used to simulate the dataset (red vertical line).\n\n')
+    
+    cat('<img src="assets/comparison-with-actual_probabilities.png" width="80%">\n')
+}
+
+```
+
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/comparison-with-actual_populations.png")) {
+    cat('\n## Total population size\n\n')
+
+    cat('Comparison of the posterior distribution of the total population size from the vulnerability model (blue envelope) with the prior distribution (red envelope) and the actual population size used to simulate the dataset (red vertical line).\n\n')
+    
+    cat('<img src="assets/comparison-with-actual_populations.png" width="80%">\n')
+}
+
+```
+
+
+

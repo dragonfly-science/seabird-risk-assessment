@@ -1,0 +1,165 @@
+---
+title: "Results of the seabird risk assessment example"
+output: 
+  html_document:
+    theme: cerulean
+mode: selfcontained
+---
+
+
+```{r echo=F, warning= F, message=F}
+library(knitr)
+library(data.table)
+library(kableExtra)
+pts <- readRDS('tracking-points.rds')
+## options(knitr.table.format = "html")
+source('../functions.r')
+opts_chunk$set(message = FALSE, warning = FALSE, error = FALSE, tidy = FALSE, cache = FALSE,results = 'asis' )
+
+spplist  <- fread('../input-data/species-list.csv')[base_species == T]
+
+## options(xtable.include.rownames = F,
+##         xtable.hline.after = -1,
+##         xtable.sanitize.text.function = function(x){x},
+##         xtable.format.args = list(big.mark = ' '),
+##         warnPartialMatchAttr = T,
+##         warnPartialMatchDollar = F)
+
+
+```
+
+Important: these results are only provided to illustrate the seabird
+risk assessment framework and rely on dummy data. These results are
+not real!
+
+----
+
+# Annual Potential Fatalities
+
+## APF by species
+
+```{r echo=F}
+apf_sp <- fread('assets/apf_by_species.csv')
+for (v in c('mean', 'sd', 'lcl', 'ucl')) apf_sp[, eval(v) := format(round(get(v)), big.mark=' ')]
+apf_sp[, ci95 := sprintf('%s -- %s', lcl, ucl)]
+apf_sp[, c('code', 'lcl', 'ucl') := NULL]
+setnames(apf_sp, c('Taxa', 'Mean', 'SD', '95% c.i.'))
+```
+
+```{r echo=F}
+kable(apf_sp, digits = c(NA, 0, 0, NA), booktabs = T, align = 'lrrr',
+      caption = 'Annual potential fatalities in commercial fisheries in the southern hemisphere')
+
+```
+
+# Risk ratio
+
+```{r echo=F}
+if (file.exists(sprintf('../risk/risk-ratios-summary-%s.csv', type))) {
+    riskratios <- fread(sprintf('../risk/risk-ratios-summary-%s.csv', type))
+    for (v in c('mean', 'sd', 'lcl', 'ucl'))  riskratios[, eval(v) := format(round(get(v),2), big.mark=' ')]
+    riskratios[, ci95 := sprintf('%s -- %s', lcl, ucl)]
+    riskratios[, c('code', 'lcl', 'ucl', 'taxa') := NULL]
+    setnames(riskratios, c('Taxa', 'Mean', 'SD', '95% c.i.'))
+
+    kable(riskratios, digits = c(NA, NA, 2, 2, 2), booktabs = T, align = 'lrrr',
+          caption = 'Risk ratio of the studied seabird taxa in the southern hemisphere commercial fisheries') %>%
+        kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width=F)
+}
+```
+
+```{r echo=F}
+if (file.exists(sprintf("assets/risk-ratios-%s.png", type))) {
+    cat(sprintf('<figure>\n<img src="assets/risk-ratios-%s.png" width="100%%">\n<figcaption>Risk ratios of the studied species in the southern hemisphere commercial fisheries.</figcaption>\n\n', type))
+}
+```
+
+
+----
+
+## APF spatial distribution
+
+```{r echo=F, results='asis'}
+for (i in 1:nrow(spplist)) {
+    sp <- spplist[i, upper1st(common_name)]
+    ## cat(sprintf('<img src="./assets/apf-maps/apf-map-%s.pdf" width="200">\n\n', sp, spplist[i, code]))
+    ## cat(sprintf('![An image](assets/apf-maps/apf-map-%s.pdf) <!-- .element height="500px" width="500px" -->\n\n',
+    ##             spplist[i, code]))
+    ## cat('<figure>\n')
+    cat('<div style="float: left; width: 48%; align: top;">\n')
+    cat(sprintf('<h4>%s</h4>\n', sp))
+    cat(sprintf('<img src="assets/apf-maps/apf-map-%s.png" style="float: center; width: 80%%; margin-right: 1%%; margin-bottom: 0.5em;">\n\n', spplist[i, code]))
+    cat('</div>\n')
+
+    ## cat('<figcaption>', sp, '</figcaption>\n')
+    ## cat('</figure>\n\n')
+    ## cat(sprintf('![%s](./assets/apf-maps/apf-map-%s.pdf)\n\n', sp, spplist[i, code]))
+}
+```
+<p style="clear: both;">
+
+----
+
+## MCMC diagnostics
+
+Trace of the MCMC chains for the vulnerability parameters (intercept,
+fishery groups, and species groups). The vulnerability of reference
+groups was fixed to 1.
+
+```{r echo=F, results='asis'}
+cat(sprintf('<img src="assets/traces_vulnerabilities_%s-run.png" width="100%%">\n\n', type))
+```
+
+
+------
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/observed-vs-predicted-captures.png")) {
+    cat('\n# Comparison of observed and predicted captures\n\n')
+
+    cat('The comparison of the observed number of captures with the predicted
+number of captures among all strata provides an indication of the
+model fit and may highlight issues about the assumption of the model
+(e.g. grouping of species or fisheries).\n')
+
+    cat('<img src="assets/observed-vs-predicted-captures.png" width="70%">\n')
+
+    cat('------\n')
+}
+```
+
+# Comparison of results with dummy data
+
+Since the captures were simulated from fixed and therefore known
+parameters, we can compare the results of the model with the values
+used for the creation of the data.
+
+## Vulnerabilities
+
+<img src="assets/observed-vs-predicted-vulnerabilities.png" width="70%">
+
+
+```{r echo=F, results='asis'}
+
+if (file.exists("assets/observed-vs-predicted-captures.png")) {
+    cat('\n## Total number of incidents\n\n')
+
+    cat('<img src="assets/observed-vs-predicted-incidents.png" width="70%">\n')
+}
+
+```
+
+
+# Comparison of different models
+
+```{r echo = F}
+modcomp <- fread('assets/model_comparison.csv')
+apf <- modcomp[comparison == 'apf-by-species']
+d <- dcast(melt(apf, id.vars = c('model', 'byvar1_lab'), measure.vars=c('mean', 'lcl', 'ucl')),
+          byvar1_lab ~ model + variable)
+kable(d, digits = c(NA, 0,0,0,0,0,0), booktabs = T, align = 'lrrrrrr',
+            caption = 'Annual potential fatalities') %>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width=F)
+
+```

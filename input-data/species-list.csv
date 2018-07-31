@@ -1,0 +1,12 @@
+order,taxa,code,common_name,vul_group,pop_world,biennial,parent_code,base_species
+1,Diomedea exulans,DIX,wandering albatross,WND,8050,Y,WND,TRUE
+2,Diomedea antipodensis,DQS,Antipodean albatross,ANT,3320,Y,ANT,TRUE
+3,Diomedea gibsoni,DIW,Gibson's albatross,ANT,4792,Y,ANT,TRUE
+4,Diomedea dabbenena,DBN,Tristan albatross,WND,1700,Y,WND,TRUE
+5,Diomedea amsterdamensis,DAM,Amsterdam albatross,WND,26,Y,WND,TRUE
+6,Diomedea epomophora,DIP,southern royal albatross,RYL,7900,Y,ROY,TRUE
+7,Diomedea sanfordi,DIQ,northern royal albatross,RYL,5832,Y,ROY,TRUE
+8,Diomedea spp,DIO,great albatross (spp),,,Y,aves,FALSE
+9,D. sanfordi + epomophora,ROY,Royal albatrosses (spp),RYL,,Y,DIO,FALSE
+10,D. gibsoni + antipodensis,ANT,Antipodean or Gibson's albatrosses (spp),ANT,,Y,DIO,FALSE
+11,D. exulans + dabbenena + amsterdamensis,WND,Wandering albatrosses (other than Antipodean or Gibson's albatrosses),WND,,Y,DIO,FALSE
